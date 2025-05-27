@@ -5,9 +5,11 @@ const Date = @import("date_time.zig").Date;
 
 pub fn main() !void {}
 
+//------------------------------------API------------------------------------//
 // sum in minimal units,
 // persent is float, example 0.25 (25%)
-fn calculateSimpleProffit(
+// return rounded result
+pub fn calculateSimpleProffit(
     start_date: Date,
     months: u32,
     sum: u64,
@@ -34,6 +36,54 @@ fn calculateSimpleProffit(
     }
     return @intFromFloat(@round(total));
 }
+
+pub fn calculateComppexProfit(
+    start_date: Date,
+    months: u32,
+    sum: u64,
+    persent: f32,
+    capitalisationPeriod: CapitalisationPeriod,
+) !u64 {
+    switch (capitalisationPeriod) {
+        .Day => return calculateDaysCapitalization(start_date, months, sum, persent),
+        .Month => return 0,
+        .Year => return 0,
+    }
+}
+//------------------------------------API-END------------------------------------//
+
+fn calculateDaysCapitalization(
+    start_date: Date,
+    months: u32,
+    sum: u64,
+    persent: f32,
+) !u64 {
+    const end_date = try start_date.shiftMonths(months);
+    const date_chunks = try splitByYears(start_date, end_date, palloc);
+    defer palloc.free(date_chunks);
+    var total: f64 = @as(f64, @floatFromInt(sum));
+    for (date_chunks, 0..) |chunk, idx| {
+        const start = chunk.start;
+        const end = chunk.end;
+        var days: u32 = 0;
+        if (idx == 0) {
+            days = try start.daysBetween(&end);
+        } else {
+            days = try start.daysBetween(&end) + 1;
+        }
+        const days_in_year = end.year.days;
+        const days_float: f64 = @as(f64, @floatFromInt(days));
+        const part = (1 + (persent / @as(f64, @floatFromInt(days_in_year))));
+        total = total * std.math.pow(f64, part, days_float);
+    }
+    return @intFromFloat(@round(total));
+}
+
+const CapitalisationPeriod = enum {
+    Day,
+    Month,
+    Year,
+};
 
 fn splitByYears(start_date: Date, end_date: Date, alloc: std.mem.Allocator) ![]DateChunk {
     const chunks_size = (end_date.year.number - start_date.year.number) + 1;
@@ -143,4 +193,33 @@ test "should calculate profit considering a leap year" {
     );
 
     try std.testing.expectEqual(223_333, date_start_on_new_year);
+}
+
+test "should calculate complex profit with daily capitalization" {
+    const same_year_daily_cap: u64 = try calculateDaysCapitalization(
+        try Date.init(2025, 5, 28),
+        4,
+        100500,
+        0.21,
+    );
+
+    try std.testing.expectEqual(107_868, same_year_daily_cap);
+
+    const multiple_years_daily_cap: u64 = try calculateDaysCapitalization(
+        try Date.init(2025, 5, 28),
+        12,
+        100500,
+        0.22,
+    );
+
+    try std.testing.expectEqual(125_222, multiple_years_daily_cap);
+
+    const multiple_with_leap_years_daily_cap: u64 = try calculateDaysCapitalization(
+        try Date.init(2025, 5, 28),
+        42,
+        100500,
+        0.19,
+    );
+
+    try std.testing.expectEqual(195_549, multiple_with_leap_years_daily_cap);
 }
