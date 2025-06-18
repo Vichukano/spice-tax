@@ -19,6 +19,20 @@ pub const Date = struct {
         return Date{ .year = y, .month = m, .day = day };
     }
 
+    pub fn fromISO(input: []const u8) DateValidationError!Date {
+        if (input.len != 10) {
+            return DateValidationError.InvalidInputFormath;
+        }
+        const delimeter = '-';
+        if (input[4] != delimeter or input[7] != delimeter) {
+            return DateValidationError.InvalidInputFormath;
+        }
+        const year = std.fmt.parseInt(u32, input[0..4], 10) catch return DateValidationError.InvalidInputFormath;
+        const month = std.fmt.parseInt(u8, input[5..7], 10) catch return DateValidationError.InvalidInputFormath;
+        const day = std.fmt.parseInt(u8, input[8..10], 10) catch return DateValidationError.InvalidInputFormath;
+        return try Date.init(year, month, day);
+    }
+
     pub fn isLeapYear(self: *const Date) bool {
         return self.year.is_leap;
     }
@@ -252,6 +266,7 @@ const all_months = [13]Month{
 };
 
 const DateValidationError = error{
+    InvalidInputFormath,
     InvalidYearFormath,
     InvalidMonthFormath,
     InvalidDayFormath,
@@ -349,4 +364,11 @@ test "compare two dates" {
     try std.testing.expectEqual(DateOrder.Greater, origin.compare(&try Date.init(2021, 3, 31)));
     try std.testing.expectEqual(DateOrder.Greater, origin.compare(&try Date.init(2025, 2, 28)));
     try std.testing.expectEqual(DateOrder.Greater, origin.compare(&try Date.init(2025, 3, 29)));
+}
+
+test "should create Date from ISO string" {
+    const date = try Date.init(2025, 6, 10);
+    const from_iso_string = try Date.fromISO("2025-06-10");
+
+    try std.testing.expect(date.equals(&from_iso_string));
 }
