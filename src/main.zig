@@ -76,10 +76,21 @@ pub fn main() !void {
         return;
     }
     const period_defenition_formatted = if (std.mem.eql(u8, "г", period_defenition_input)) "года/лет" else "месяца/месяцев";
+    try writeInfo(writer, "Капитализация", "По проценту предусмотрена капитализация?\n'д' - ежедневная,\n'м' - ежемесячная,\n'г' - годовая.\nЛюбое другое значение, если не предусморена.\n\nВвод: ");
+    const capitalization_input = try readInput(reader, &buffer, palloc);
+    defer palloc.free(capitalization_input);
+    const cap_period = capitalizationPeriod(capitalization_input);
+    const cap_period_fomatted = switch (cap_period) {
+        .None => "без капитализации",
+        .Day => "ежедневная",
+        .Year => "ежегодная",
+        .Month => "ежемесячная",
+    };
     try writer.writeAll("\n##########################################################\n\n");
+    const persent_formatted = persent_normalized * 100;
     try writer.print(
-        "Вы ввели: дата открытия: {s}\nСумма: {s}\nПроцент: {d}\nСрок: {s} {s}\n\nВведенные данные верны? 'дa/д' - для подтверждения.\n\nВвод: ",
-        .{ date_input, sum_input, persent_normalized, period_input, period_defenition_formatted },
+        "Вы ввели: дата открытия: {s}\nСумма: {s}\nПроцент: {d}%\nСрок: {s} {s}\nКапитализация: {s}\n\nВведенные данные верны? 'дa/д' - для подтверждения.\n\nВвод: ",
+        .{ date_input, sum_input, persent_formatted, period_input, period_defenition_formatted, cap_period_fomatted },
     );
     const confirm_input = try readInput(reader, &buffer, palloc);
     defer palloc.free(confirm_input);
@@ -88,10 +99,18 @@ pub fn main() !void {
         return;
     }
     // read input finished there
-    const period_int: u32 = try std.fmt.parseInt(u32, persent_input, 10);
+    const period_int: u32 = try std.fmt.parseInt(u32, period_input, 10);
     const months: u32 = if (std.mem.eql(u8, "г", period_defenition_input)) period_int * @as(u32, 12) else period_int;
-    const profit = try calc.calculateSimpleProffit(date, months, kopeck, persent_normalized);
-    try printProfit(writer, profit, kopeck, palloc);
+    switch (cap_period) {
+        .None => {
+            const simpte_profit = try calc.calculateSimpleProffit(date, months, kopeck, persent_normalized);
+            try printProfit(writer, simpte_profit, kopeck, palloc);
+        },
+        else => {
+            const compex_profit = try calc.calculateComppexProfit(date, months, kopeck, persent_normalized, cap_period);
+            try printComplexProfit(writer, compex_profit, kopeck, palloc);
+        },
+    }
     try exit();
 }
 
@@ -144,6 +163,22 @@ fn isInputConfirmed(input: []const u8) bool {
     return (is_y or is_yes);
 }
 
+fn capitalizationPeriod(input: []const u8) calc.CapitalisationPeriod {
+    const is_day = std.mem.eql(u8, "д", input);
+    const is_month = std.mem.eql(u8, "м", input);
+    const is_year = std.mem.eql(u8, "г", input);
+    if (is_day) {
+        return calc.CapitalisationPeriod.Day;
+    }
+    if (is_month) {
+        return calc.CapitalisationPeriod.Month;
+    }
+    if (is_year) {
+        return calc.CapitalisationPeriod.Year;
+    }
+    return calc.CapitalisationPeriod.None;
+}
+
 fn parseToKopeck(input: []const u8) !u64 {
     var dot_index: usize = input.len;
     var found_separator = false;
@@ -178,9 +213,28 @@ fn printProfit(
     const total = sum + amount;
     const profit_formatted = try formatAmount(amount, allocator);
     const total_formatted = try formatAmount(total, allocator);
+    defer allocator.free(profit_formatted);
+    defer allocator.free(total_formatted);
     try writer_stdout.writeAll("\n##########################################################\n\n");
-    try writer_stdout.print("Прибыль по депозиту составит:      {s}\n", .{profit_formatted});
+    try writer_stdout.print("Прибыль по депозиту составит:          {s}\n", .{profit_formatted});
     try writer_stdout.print("Итоговая сумма на конец депозита:      {s}", .{total_formatted});
+    try writer_stdout.writeAll("\n\n##########################################################\n");
+}
+
+fn printComplexProfit(
+    writer_stdout: anytype,
+    amount: u64,
+    sum: u64,
+    allocator: std.mem.Allocator,
+) !void {
+    const delta = amount - sum;
+    const profit_formatted = try formatAmount(amount, allocator);
+    const delta_formatted = try formatAmount(delta, allocator);
+    defer allocator.free(profit_formatted);
+    defer allocator.free(delta_formatted);
+    try writer_stdout.writeAll("\n##########################################################\n\n");
+    try writer_stdout.print("Прибыль по депозиту составит:          {s}\n", .{delta_formatted});
+    try writer_stdout.print("Итоговая сумма на конец депозита:      {s}", .{profit_formatted});
     try writer_stdout.writeAll("\n\n##########################################################\n");
 }
 

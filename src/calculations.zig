@@ -49,6 +49,7 @@ pub fn calculateComppexProfit(
         .Day => return calculateDaysCapitalization(start_date, months, sum, persent),
         .Month => return calculateMonthCapitalization(months, sum, persent),
         .Year => return calculateYearCapitalization(months, sum, persent),
+        .None => return ProfitCalculationError.CapitalizationNotSupported,
     }
 }
 //------------------------------------API-END------------------------------------//
@@ -93,6 +94,7 @@ fn calculateMonthCapitalization(
 const ProfitCalculationError = error{
     WrongMonthsNubmer,
     DateParsingError,
+    CapitalizationNotSupported,
 };
 
 fn calculateYearCapitalization(
@@ -109,10 +111,11 @@ fn calculateYearCapitalization(
     return @intFromFloat(@round(total));
 }
 
-const CapitalisationPeriod = enum {
+pub const CapitalisationPeriod = enum {
     Day,
     Month,
     Year,
+    None,
 };
 
 fn splitByYears(start_date: Date, end_date: Date, alloc: std.mem.Allocator) ![]DateChunk {
@@ -264,6 +267,10 @@ test "should calculate complex profit with monthly capitalization" {
     );
 
     try std.testing.expectEqual(239_518, monthly);
+
+    const monthly_two = calculateMonthCapitalization(48, 100500, 0.133);
+
+    try std.testing.expectEqual(170_585, monthly_two);
 }
 
 test "should return error if wrong month number for year capitalization" {
