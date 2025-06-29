@@ -104,11 +104,11 @@ pub fn main() !void {
     switch (cap_period) {
         .None => {
             const simpte_profit = try calc.calculateSimpleProffit(date, months, kopeck, persent_normalized);
-            try printProfit(writer, simpte_profit, kopeck, palloc);
+            try printProfit(writer, simpte_profit, palloc);
         },
         else => {
             const compex_profit = try calc.calculateComppexProfit(date, months, kopeck, persent_normalized, cap_period);
-            try printComplexProfit(writer, compex_profit, kopeck, palloc);
+            try printProfit(writer, compex_profit, palloc);
         },
     }
     try exit();
@@ -206,36 +206,28 @@ fn parseToKopeck(input: []const u8) !u64 {
 
 fn printProfit(
     writer_stdout: anytype,
-    amount: u64,
-    sum: u64,
+    profit_info: calc.ProfitInfo,
     allocator: std.mem.Allocator,
 ) !void {
-    const total = sum + amount;
-    const profit_formatted = try formatAmount(amount, allocator);
-    const total_formatted = try formatAmount(total, allocator);
-    defer allocator.free(profit_formatted);
-    defer allocator.free(total_formatted);
+    const end_sum = try formatAmount(profit_info.end_sum, allocator);
+    const start_sum = try formatAmount(profit_info.start_sum, allocator);
+    const delta = try formatAmount(profit_info.delta, allocator);
+    const tax = profit_info.tax * 100.0;
+    const ear = profit_info.effective_tax * 100.0;
+    const start_date = profit_info.start_date;
+    const end_date = profit_info.end_date;
+    defer allocator.free(end_sum);
+    defer allocator.free(start_sum);
+    defer allocator.free(delta);
     try writer_stdout.writeAll("\n##########################################################\n\n");
-    try writer_stdout.print("Прибыль по депозиту составит:          {s}\n", .{profit_formatted});
-    try writer_stdout.print("Итоговая сумма на конец депозита:      {s}", .{total_formatted});
-    try writer_stdout.writeAll("\n\n##########################################################\n");
-}
-
-fn printComplexProfit(
-    writer_stdout: anytype,
-    amount: u64,
-    sum: u64,
-    allocator: std.mem.Allocator,
-) !void {
-    const delta = amount - sum;
-    const profit_formatted = try formatAmount(amount, allocator);
-    const delta_formatted = try formatAmount(delta, allocator);
-    defer allocator.free(profit_formatted);
-    defer allocator.free(delta_formatted);
-    try writer_stdout.writeAll("\n##########################################################\n\n");
-    try writer_stdout.print("Прибыль по депозиту составит:          {s}\n", .{delta_formatted});
-    try writer_stdout.print("Итоговая сумма на конец депозита:      {s}", .{profit_formatted});
-    try writer_stdout.writeAll("\n\n##########################################################\n");
+    try writer_stdout.print("Дата открытия депозита:                {d}-{d}-{d}\n", .{ start_date.year.number, start_date.month.number, start_date.day });
+    try writer_stdout.print("Дата закрытия депозита:                {d}-{d}-{d}\n", .{ end_date.year.number, end_date.month.number, end_date.day });
+    try writer_stdout.print("Сумма открытия депозита:               {s}\n", .{start_sum});
+    try writer_stdout.print("Сумма на конец депозита:               {s}\n", .{end_sum});
+    try writer_stdout.print("Прибыль по депозиту составит:          {s}\n", .{delta});
+    try writer_stdout.print("Базовая процентная ставка:             {d:.2}%\n", .{tax});
+    try writer_stdout.print("Эффективная процентная ставка:         {d:.2}%\n", .{ear});
+    try writer_stdout.writeAll("\n##########################################################\n");
 }
 
 fn formatAmount(
