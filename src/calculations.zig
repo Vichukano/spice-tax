@@ -29,7 +29,7 @@ pub fn calculateSimpleProffit(
         } else {
             days = try start.daysBetween(&end) + 1;
         }
-        const days_in_year = end.year.days;
+        const days_in_year: u16 = end.year.days;
         const sum_float: f64 = @as(f64, @floatFromInt(sum));
         const days_float: f64 = @as(f64, @floatFromInt(days));
         const calculated_sum: f64 = (sum_float * persent * days_float) / @as(f64, @floatFromInt(days_in_year));
@@ -45,6 +45,7 @@ pub fn calculateSimpleProffit(
         .effective_tax = persent,
         .start_date = start_date,
         .end_date = end_date,
+        .months = months,
     };
 }
 
@@ -72,6 +73,7 @@ pub fn calculateComppexProfit(
         .effective_tax = ear,
         .start_date = start_date,
         .end_date = end_date,
+        .months = months,
     };
 }
 
@@ -90,6 +92,7 @@ pub const ProfitInfo = struct {
     effective_tax: f32,
     start_date: Date,
     end_date: Date,
+    months: u32,
 };
 
 //------------------------------------API-END------------------------------------//

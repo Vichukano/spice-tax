@@ -49,6 +49,23 @@ pub const Date = struct {
         ) catch "failed create toString of Date struct";
     }
 
+    pub fn prettyPrint(self: *const Date, allocator: std.mem.Allocator) []const u8 {
+        const pretty_month: []const u8 = switch (self.month.number) {
+            1 => "01",
+            2 => "02",
+            3 => "03",
+            4 => "04",
+            5 => "05",
+            6 => "06",
+            7 => "07",
+            8 => "08",
+            9 => "09",
+            else => std.fmt.allocPrint(allocator, "{d}", .{self.month.number}) catch "xx",
+        };
+        const pretty_day: []const u8 = if (self.day < 10) std.fmt.allocPrint(allocator, "0{d}", .{self.day}) catch "xx" else std.fmt.allocPrint(allocator, "{d}", .{self.day}) catch "xx";
+        return std.fmt.allocPrint(allocator, "{d}-{s}-{s}", .{ self.year.number, pretty_month, pretty_day }) catch "failed to pretty print date";
+    }
+
     pub fn compare(self: *const Date, other: *const Date) DateOrder {
         if (self.equals(other)) {
             return DateOrder.Equals;
@@ -127,6 +144,20 @@ pub const Date = struct {
             curr_day = curr_month.days;
         }
         return try Date.init(curr_year.number, curr_month.number, curr_day);
+    }
+
+    pub fn monthsBetween(self: *const Date, other: *const Date) !u32 {
+        var curr_date = try Date.init(self.year.number, self.month.number, self.day);
+        if (curr_date.compare(other) == DateOrder.Equals or curr_date.compare(other) == DateOrder.Greater) {
+            return 0;
+        }
+        var months_count: u32 = 0;
+        curr_date = try curr_date.shiftMonths(1);
+        while (curr_date.compare(other) == DateOrder.Less) {
+            months_count = months_count + 1;
+            curr_date = try curr_date.shiftMonths(1);
+        }
+        return months_count;
     }
 
     // Calculate number of days between two dates.
@@ -371,4 +402,21 @@ test "should create Date from ISO string" {
     const from_iso_string = try Date.fromISO("2025-06-10");
 
     try std.testing.expect(date.equals(&from_iso_string));
+}
+
+test "should calculate months count between two dates" {
+    // should be two months
+    var first_date = try Date.init(2025, 6, 20);
+    var second_date = try Date.init(2025, 8, 21);
+    try std.testing.expectEqual(2, try first_date.monthsBetween(&second_date));
+
+    //should be zero
+    first_date = try Date.init(2025, 6, 20);
+    second_date = try Date.init(2025, 7, 19);
+    try std.testing.expectEqual(0, try first_date.monthsBetween(&second_date));
+
+    //should be six
+    first_date = try Date.init(2025, 6, 20);
+    second_date = try Date.init(2025, 12, 30);
+    try std.testing.expectEqual(6, try first_date.monthsBetween(&second_date));
 }
